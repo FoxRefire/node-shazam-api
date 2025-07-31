@@ -1,6 +1,11 @@
-## Shazam Api for node-js
+## Shazam Api for node-js (Fork for used in Librezam)
 
 This library is heavily based on [Numenorean's work](https://github.com/Numenorean/ShazamAPI).
+
+Changes in this fork:
+
+* Webpack build target
+* Fix lower recognition accuracy
 
 Usage:
 
