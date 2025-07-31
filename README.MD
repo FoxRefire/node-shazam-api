@@ -2,12 +2,12 @@
 
 This library is heavily based on [Numenorean's work](https://github.com/Numenorean/ShazamAPI).
 
-Changes in this fork:
+### Changes in this fork:
 
 * Webpack build target
 * Fix lower recognition accuracy
 
-Usage:
+### Usage:
 
 ```js
 import { Shazam, s16LEToSamplesArray } from 'shazam-api';
