@@ -5,7 +5,7 @@ This library is heavily based on [Numenorean's work](https://github.com/Numenore
 ### Changes in this fork:
 
 * Webpack build target
-* Fix lower recognition accuracy
+* Restore to 0.2.0 because 0.2.1-0 obviously decreases recognition accuracy
 
 ### Usage:
 
