@@ -6,6 +6,7 @@ This library is heavily based on [Numenorean's work](https://github.com/Numenore
 
 * Webpack build target
 * Restore to 0.2.0 because 0.2.1-0 obviously decreases recognition accuracy
+* Improve recognition speed(#1)
 
 ### Usage:
 
