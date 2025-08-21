@@ -96,6 +96,122 @@ export function fft(input: ComplexNumber[]): ComplexNumber[] {
     return result;
 }
 
+// Ultra-optimized FFT for real input (specialized for audio processing)
+export function fftRealOptimized(input: number[], output: ComplexNumber[]): void {
+    const N = input.length;
+    if (N <= 1) {
+        for (let i = 0; i < N; i++) {
+            output[i].real = input[i];
+            output[i].imag = 0;
+        }
+        return;
+    }
+    
+    // Convert to complex numbers in-place
+    for (let i = 0; i < N; i++) {
+        output[i].real = input[i];
+        output[i].imag = 0;
+    }
+    
+    // In-place FFT without object creation
+    const bits = Math.log2(N);
+    const twiddles = getTwiddleFactors(N);
+    
+    // Bit reversal permutation
+    for (let i = 0; i < N; i++) {
+        const j = bitReverse(i, bits);
+        if (i < j) {
+            const tempReal = output[i].real;
+            const tempImag = output[i].imag;
+            output[i].real = output[j].real;
+            output[i].imag = output[j].imag;
+            output[j].real = tempReal;
+            output[j].imag = tempImag;
+        }
+    }
+    
+    // Iterative FFT with minimal object creation and optimized loops
+    for (let size = 2; size <= N; size *= 2) {
+        const halfSize = size / 2;
+        const step = N / size;
+        
+        for (let group = 0; group < N; group += size) {
+            for (let pair = group; pair < group + halfSize; pair++) {
+                const match = pair + halfSize;
+                const twiddle = twiddles[(pair - group) * step];
+                
+                // In-place complex multiplication and addition
+                const tempReal = output[match].real * twiddle.real - output[match].imag * twiddle.imag;
+                const tempImag = output[match].real * twiddle.imag + output[match].imag * twiddle.real;
+                
+                output[match].real = output[pair].real - tempReal;
+                output[match].imag = output[pair].imag - tempImag;
+                
+                output[pair].real += tempReal;
+                output[pair].imag += tempImag;
+            }
+        }
+    }
+}
+
+// Ultra-fast FFT for real input with pre-allocated buffers (zero allocation)
+export function fftRealZeroAlloc(input: Float64Array, output: ComplexNumber[]): void {
+    const N = input.length;
+    if (N <= 1) {
+        for (let i = 0; i < N; i++) {
+            output[i].real = input[i];
+            output[i].imag = 0;
+        }
+        return;
+    }
+    
+    // Convert to complex numbers in-place
+    for (let i = 0; i < N; i++) {
+        output[i].real = input[i];
+        output[i].imag = 0;
+    }
+    
+    // In-place FFT without object creation
+    const bits = Math.log2(N);
+    const twiddles = getTwiddleFactors(N);
+    
+    // Bit reversal permutation
+    for (let i = 0; i < N; i++) {
+        const j = bitReverse(i, bits);
+        if (i < j) {
+            const tempReal = output[i].real;
+            const tempImag = output[i].imag;
+            output[i].real = output[j].real;
+            output[i].imag = output[j].imag;
+            output[j].real = tempReal;
+            output[j].imag = tempImag;
+        }
+    }
+    
+    // Iterative FFT with minimal object creation and optimized loops
+    for (let size = 2; size <= N; size *= 2) {
+        const halfSize = size / 2;
+        const step = N / size;
+        
+        for (let group = 0; group < N; group += size) {
+            for (let pair = group; pair < group + halfSize; pair++) {
+                const match = pair + halfSize;
+                const twiddle = twiddles[(pair - group) * step];
+                
+                // In-place complex multiplication and addition
+                const tempReal = output[match].real * twiddle.real - output[match].imag * twiddle.imag;
+                const tempImag = output[match].real * twiddle.imag + output[match].imag * twiddle.real;
+                
+                output[match].real = output[pair].real - tempReal;
+                output[match].imag = output[pair].imag - tempImag;
+                
+                output[pair].real += tempReal;
+                output[pair].imag += tempImag;
+            }
+        }
+    }
+}
+
 // Specialized FFT for real input (optimized for audio processing)
 export function fftReal(input: number[]): ComplexNumber[] {
     const N = input.length;
