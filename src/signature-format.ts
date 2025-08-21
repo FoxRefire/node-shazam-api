@@ -1,22 +1,23 @@
 import { Buffer } from 'buffer';
 
-var crc32 = function(str: number[]) {
-    var c;
-    var crcTable = [];
-    for(var n =0; n < 256; n++){
-        c = n;
-        for(var k =0; k < 8; k++){
-            c = ((c&1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+// Precomputed CRC32 table for performance
+const CRC32_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+            c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
         }
-        crcTable[n] = c;
+        table[n] = c >>> 0;
     }
+    return table;
+})();
 
-    var crc = 0 ^ (-1);
-
-    for (var i = 0; i < str.length; i++ ) {
-        crc = (crc >>> 8) ^ crcTable[(crc ^ str[i]) & 0xFF];
+const crc32 = function(str: ArrayLike<number>) {
+    let crc = -1;
+    for (let i = 0; i < str.length; i++) {
+        crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ str[i]) & 0xFF];
     }
-
     return (crc ^ (-1)) >>> 0;
 };
 export enum FrequencyBand{
@@ -65,30 +66,26 @@ export interface RawSignatureHeader{
 }
 
 const readUint32 = (data: Uint8Array) => {
+    // Little-endian 32-bit unsigned read
     return (
-        data[0] >> 24 |
-        data[1] >> 16 |
-        data[2] >> 8 |
-        data[3]
+        (data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24)) >>> 0
     );
 }
 const padTo32       = (data: Uint8Array) => new Uint8Array([...data, ...Array(4 - data.length).fill(0)]);
 const readInt32     = (data: Uint8Array) => new Int32Array(data)[0];
 const writeUint32   = (e: number) => [e & 0xff, (e >> 8) & 0xff, (e >> 16) & 0xff, (e >> 24) & 0xff];
 const writeInt32    = (e: number) => {
-    let q = new DataView(new ArrayBuffer(4), 0);
-    q.setInt32(0, e, true);
-    return new Uint8Array(q.buffer);
+    // Little-endian representation as number[] to avoid per-call ArrayBuffer/DataView allocations
+    return [e & 0xff, (e >> 8) & 0xff, (e >> 16) & 0xff, (e >> 24) & 0xff];
 }
 const writeInt16    = (e: number) => {
-    let q = new DataView(new ArrayBuffer(2), 0);
-    q.setInt16(0, e, true);
-    return new Uint8Array(q.buffer);
+    // Little-endian representation as number[] to avoid per-call ArrayBuffer/DataView allocations
+    return [e & 0xff, (e >> 8) & 0xff];
 }
 
 export function readRawSignatureHeader(read: ((e?: number) => Uint8Array)){
     const _readUint32 = () => readUint32(read(4));
-    const clear = (e: number) => Array(e).fill(0).map(readUint32);
+    const clear = (e: number) => Array(e).fill(0).map(_readUint32);
     const
         magic1 = _readUint32(),
         crc32 = _readUint32(),
@@ -131,8 +128,11 @@ export class DecodedMessage{
         let self = new DecodedMessage();
 
         let ptr = 0;
-        const read = (e?: number) => e === undefined ? bytes.slice(ptr, ptr = bytes.length) : bytes.slice(ptr, ptr += e);
+        // Use subarray to avoid copying
+        const read = (e?: number) => e === undefined ? bytes.subarray(ptr, ptr = bytes.length) : bytes.subarray(ptr, ptr += e);
         const seek = (e: number) => ptr = e;
+        const i32LE = (arr: Uint8Array, off: number = 0) => (arr[off] | (arr[off+1] << 8) | (arr[off+2] << 16) | (arr[off+3] << 24)) | 0;
+        const u16LE = (arr: Uint8Array, off: number = 0) => (arr[off] | (arr[off+1] << 8)) >>> 0;
 
         seek(8);
         const checksummableData = read();
@@ -151,8 +151,8 @@ export class DecodedMessage{
             const tlvHeader = read(8);
             if(tlvHeader.length === 0) break;
 
-            let frequencyBandId = readInt32(tlvHeader.slice(0, 4)),
-                frequencyPeaksSize = readInt32(tlvHeader.slice(4));
+            let frequencyBandId = i32LE(tlvHeader, 0),
+                frequencyPeaksSize = i32LE(tlvHeader, 4);
             let frequencyPeaksPadding = 4 + (-frequencyPeaksSize % 4);
             read(frequencyPeaksPadding);
 
@@ -166,14 +166,15 @@ export class DecodedMessage{
 
                 let fftPassOffset = rawFftPass[0];
                 if(fftPassOffset === 0xff){
-                    fftPassNumber = readInt32(read(4));
+                    const raw = read(4);
+                    fftPassNumber = i32LE(raw, 0);
                     continue;
                 }else{
                     fftPassNumber += fftPassOffset
                 }
 
-                let peakMagnitude = readInt32(padTo32(read(2)));
-                let correctedPeakFrequencyBin = readInt32(padTo32(read(2)));
+                let peakMagnitude = u16LE(read(2));
+                let correctedPeakFrequencyBin = u16LE(read(2));
 
                 self.frequencyBandToSoundPeaks[FrequencyBand[frequencyBand]].push(
                     new FrequencyPeak(fftPassNumber, peakMagnitude, correctedPeakFrequencyBin, self.sampleRateHz)
@@ -232,9 +233,11 @@ export class DecodedMessage{
             }
             contentsBuf.push(...writeInt32(0x60030040 + frequencyBand));
             contentsBuf.push(...writeInt32(peaksBuffer.length));
-            contentsBuf = contentsBuf.concat(peaksBuffer);
+            contentsBuf.push(...peaksBuffer);
             let paddingCount = 4 - (peaksBuffer.length % 4);
-            if(paddingCount < 4) contentsBuf.push(...Array(paddingCount).fill(0));
+            if(paddingCount < 4){
+                for(let i = 0; i < paddingCount; i++) contentsBuf.push(0);
+            }
         }
 
         header.sizeMinusHeader = contentsBuf.length + 8;
@@ -243,7 +246,7 @@ export class DecodedMessage{
         buf.push(...writeRawSignatureHeader(header));
         buf.push(...writeInt32(0x40000000));
         buf.push(...writeInt32(contentsBuf.length + 8));
-        buf = buf.concat(contentsBuf);
+        buf.push(...contentsBuf);
         header.crc32 = crc32(buf.slice(8));
         let newHeader = writeRawSignatureHeader(header);
         buf.splice(0, newHeader.length, ...newHeader);
