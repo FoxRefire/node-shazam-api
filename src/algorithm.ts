@@ -26,8 +26,8 @@ const TEMPORAL_CONSISTENCY_THRESHOLD = 0.1; // より緩い閾値に調整（0.2
 // 誤検出削減のための追加定数
 const MIN_PEAK_INTERVAL_FFT = 3; // ピーク間の最小FFT間隔
 const MAX_PEAKS_PER_BAND = 8; // 周波数帯域ごとの最大ピーク数
-const FREQUENCY_CONTINUITY_THRESHOLD = 0.2; // 周波数方向の連続性閾値を0.8から0.3に緩和
-const MAGNITUDE_VARIANCE_THRESHOLD = 1.5; // マグニチュード変動の閾値を0.4から0.8に緩和
+const FREQUENCY_CONTINUITY_THRESHOLD = 0.18; // 周波数方向の連続性閾値を0.8から0.3に緩和
+const MAGNITUDE_VARIANCE_THRESHOLD = 1.55; // マグニチュード変動の閾値を0.4から0.8に緩和
 
 // 周波数帯域ごとの動的閾値
 const FREQUENCY_BAND_THRESHOLDS: { [key: number]: number } = {
