@@ -8,7 +8,7 @@ for (let i = 0; i < 2048; i++) {
 }
 
 // Pre-computed constants and lookup tables
-const MAGNITUDE_THRESHOLD = 1 / 64; // 元の値に戻す
+const MAGNITUDE_THRESHOLD = 1 / 64;
 const MAGNITUDE_SCALE = 1477.3;
 const MAGNITUDE_OFFSET = 6144;
 const FREQUENCY_BIN_SCALE = 64;
@@ -18,12 +18,8 @@ const OUTPUT_SIZE = 1025;
 const FREQUENCY_SCALE_FACTOR = SAMPLE_RATE / 2 / FFT_SIZE / FREQUENCY_BIN_SCALE;
 const MAGNITUDE_DIVISOR = 1 << 17;
 const MIN_MAGNITUDE = 0.0000000001;
-
-// 認識精度改善のための追加定数（より控えめな設定）
-const PEAK_CONFIDENCE_THRESHOLD = 0.1; // より緩い閾値に調整（0.3から0.1に）
-const TEMPORAL_CONSISTENCY_THRESHOLD = 0.1; // より緩い閾値に調整（0.2から0.1に）
-
-// 誤検出削減のための追加定数
+const PEAK_CONFIDENCE_THRESHOLD = 0.1;
+const TEMPORAL_CONSISTENCY_THRESHOLD = 0.1;
 const MIN_PEAK_INTERVAL_FFT = 3; // ピーク間の最小FFT間隔
 const MAX_PEAKS_PER_BAND = 8; // 周波数帯域ごとの最大ピーク数
 const FREQUENCY_CONTINUITY_THRESHOLD = 0.18; // 周波数方向の連続性閾値を0.8から0.3に緩和
@@ -44,23 +40,14 @@ const FREQUENCY_BAND_WEIGHTS: { [key: number]: number } = {
     [FrequencyBand._3500_5500]: 0.9     // 超高周波数帯域の重み（控えめ）
 };
 
-// 改善機能の有効/無効を制御するフラグ
-const ENABLE_ADVANCED_FILTERING = true; // デフォルトでは無効（元の動作を維持）
-const ENABLE_PEAK_CONFIDENCE = true;    // デフォルトでは無効
-const ENABLE_TEMPORAL_CONSISTENCY = true; // デフォルトでは無効
-
-// 誤検出削減機能の有効/無効を制御するフラグ
+const ENABLE_ADVANCED_FILTERING = true;
+const ENABLE_PEAK_CONFIDENCE = true;
+const ENABLE_TEMPORAL_CONSISTENCY = true;
 const ENABLE_PEAK_DENSITY_LIMIT = true;      // ピーク密度制限
 const ENABLE_PEAK_INTERVAL_LIMIT = true;     // ピーク間隔制限
 const ENABLE_DYNAMIC_THRESHOLDS = true;      // 動的閾値
 const ENABLE_FREQUENCY_CONTINUITY = true;    // 周波数連続性チェック
 const ENABLE_MAGNITUDE_STABILITY = true;     // マグニチュード安定性チェック
-
-// より厳格なピーク検出のための追加オフセット（元の設定に近い値に調整）
-const STRICT_NEIGHBOR_OFFSETS = new Int32Array([-10, -7, -4, -3, 1, 2, 5, 8]); // 元のNEIGHBOR_OFFSETSと同じ
-const STRICT_OTHER_OFFSETS = new Int32Array([
-    -53, -45, 165, 172, 179, 186, 193, 200, 214, 221, 228, 235, 242, 249
-]); // 元のOTHER_OFFSETSと同じ
 
 // Pre-computed frequency band ranges for early exit optimization
 const FREQUENCY_BAND_RANGES = [
@@ -236,7 +223,6 @@ export class SignatureGenerator{
             const filteredMagnitudes = this.applySpectralSubtraction(this.magnitudeBuffer);
             finalMagnitudes = this.smoothMagnitudes(filteredMagnitudes);
         } else {
-            // 元の動作を維持
             finalMagnitudes = this.magnitudeBuffer;
         }
 
@@ -290,7 +276,7 @@ export class SignatureGenerator{
 
             // Find maximum neighbor in FFT minus 49 using pre-computed offsets
             let maxNeighborInFftMinus49 = 0;
-            for(const neighborOffset of STRICT_NEIGHBOR_OFFSETS){
+            for(const neighborOffset of NEIGHBOR_OFFSETS){
                 const candidate = fftMinus49[binPosition + neighborOffset];
                 if(!isNaN(candidate)) {
                     maxNeighborInFftMinus49 = Math.max(candidate, maxNeighborInFftMinus49);
@@ -303,7 +289,7 @@ export class SignatureGenerator{
 
             // Find maximum neighbor in other adjacent FFTs
             let maxNeighborInOtherAdjacentFFTs = maxNeighborInFftMinus49;
-            for(const otherOffset of STRICT_OTHER_OFFSETS){
+            for(const otherOffset of OTHER_OFFSETS){
                 const candidate = this.spreadFFTsOutput.list[
                     pyMod(this.spreadFFTsOutput.position + otherOffset, this.spreadFFTsOutput.bufferSize)
                 ]![binPosition - 1];
@@ -624,7 +610,7 @@ export class SignatureGenerator{
     // スペクトラルサブトラクションによるノイズ除去
     private applySpectralSubtraction(magnitudes: Float64Array): Float64Array {
         const filtered = new Float64Array(OUTPUT_SIZE);
-        const alpha = 1.2; // スペクトラルサブトラクションの強度を下げる（元の2.0から1.2に）
+        const alpha = 1.2;
         
         for (let i = 0; i < OUTPUT_SIZE; i++) {
             // ノイズレベルを考慮したフィルタリング
@@ -649,7 +635,7 @@ export class SignatureGenerator{
     // マグニチュードの平滑化
     private smoothMagnitudes(magnitudes: Float64Array): Float64Array {
         const smoothed = new Float64Array(OUTPUT_SIZE);
-        const smoothingFactor = 0.1; // 平滑化の強度を下げる（元の0.3から0.1に）
+        const smoothingFactor = 0.1;
         
         for (let i = 0; i < OUTPUT_SIZE; i++) {
             if (i === 0) {
