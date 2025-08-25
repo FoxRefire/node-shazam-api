@@ -20,34 +20,34 @@ const MAGNITUDE_DIVISOR = 1 << 17;
 const MIN_MAGNITUDE = 0.0000000001;
 const PEAK_CONFIDENCE_THRESHOLD = 0.1;
 const TEMPORAL_CONSISTENCY_THRESHOLD = 0.1;
-const MIN_PEAK_INTERVAL_FFT = 3; // ピーク間の最小FFT間隔
-const MAX_PEAKS_PER_BAND = 8; // 周波数帯域ごとの最大ピーク数
-const FREQUENCY_CONTINUITY_THRESHOLD = 0.18; // 周波数方向の連続性閾値を0.8から0.3に緩和
-const MAGNITUDE_VARIANCE_THRESHOLD = 1.55; // マグニチュード変動の閾値を0.4から0.8に緩和
+const MIN_PEAK_INTERVAL_FFT = 3; // Minimum FFT interval between peaks
+const MAX_PEAKS_PER_BAND = 8; // Maximum number of peaks per frequency band
+const FREQUENCY_CONTINUITY_THRESHOLD = 0.18; // Frequency direction continuity threshold relaxed from 0.8 to 0.3
+const MAGNITUDE_VARIANCE_THRESHOLD = 1.55; // Magnitude variation threshold relaxed from 0.4 to 0.8
 
-// 周波数帯域ごとの動的閾値
+// Dynamic thresholds for each frequency band
 const FREQUENCY_BAND_THRESHOLDS: { [key: number]: number } = {
-    [FrequencyBand._250_520]: 1 / 96,      // 低周波数帯域はより厳格
-    [FrequencyBand._520_1450]: 1 / 64,     // 中周波数帯域は標準
-    [FrequencyBand._1450_3500]: 1 / 48,    // 高周波数帯域はより緩い
-    [FrequencyBand._3500_5500]: 1 / 32     // 超高周波数帯域は最も緩い
+    [FrequencyBand._250_520]: 1 / 96,      // Low frequency band is more strict
+    [FrequencyBand._520_1450]: 1 / 64,     // Mid frequency band is standard
+    [FrequencyBand._1450_3500]: 1 / 48,    // High frequency band is more lenient
+    [FrequencyBand._3500_5500]: 1 / 32     // Ultra-high frequency band is most lenient
 };
 
 const FREQUENCY_BAND_WEIGHTS: { [key: number]: number } = {
-    [FrequencyBand._250_520]: 1.1,      // 低周波数帯域の重み（控えめ）
-    [FrequencyBand._520_1450]: 1.0,     // 中周波数帯域の重み（基準）
-    [FrequencyBand._1450_3500]: 0.95,   // 高周波数帯域の重み（控えめ）
-    [FrequencyBand._3500_5500]: 0.9     // 超高周波数帯域の重み（控えめ）
+    [FrequencyBand._250_520]: 1.1,      // Low frequency band weight (moderate)
+    [FrequencyBand._520_1450]: 1.0,     // Mid frequency band weight (baseline)
+    [FrequencyBand._1450_3500]: 0.95,   // High frequency band weight (moderate)
+    [FrequencyBand._3500_5500]: 0.9     // Ultra-high frequency band weight (moderate)
 };
 
 const ENABLE_ADVANCED_FILTERING = true;
 const ENABLE_PEAK_CONFIDENCE = true;
 const ENABLE_TEMPORAL_CONSISTENCY = true;
-const ENABLE_PEAK_DENSITY_LIMIT = true;      // ピーク密度制限
-const ENABLE_PEAK_INTERVAL_LIMIT = true;     // ピーク間隔制限
-const ENABLE_DYNAMIC_THRESHOLDS = true;      // 動的閾値
-const ENABLE_FREQUENCY_CONTINUITY = true;    // 周波数連続性チェック
-const ENABLE_MAGNITUDE_STABILITY = true;     // マグニチュード安定性チェック
+const ENABLE_PEAK_DENSITY_LIMIT = true;      // Peak density limit
+const ENABLE_PEAK_INTERVAL_LIMIT = true;     // Peak interval limit
+const ENABLE_DYNAMIC_THRESHOLDS = true;      // Dynamic thresholds
+const ENABLE_FREQUENCY_CONTINUITY = true;    // Frequency continuity check
+const ENABLE_MAGNITUDE_STABILITY = true;     // Magnitude stability check
 
 // Pre-computed frequency band ranges for early exit optimization
 const FREQUENCY_BAND_RANGES = [
@@ -117,10 +117,10 @@ export class SignatureGenerator{
     private readonly magnitudeBuffer: Float64Array;
     private readonly excerptBuffer: Float64Array;
     
-    // ノイズフィルタリング用のバッファ
+    // Noise filtering buffer
     private readonly noiseProfile: Float64Array;
     private readonly smoothedMagnitudes: Float64Array;
-    private noiseUpdateRate: number = 0.05; // ノイズプロファイルの更新率を下げる
+    private noiseUpdateRate: number = 0.05; // Reduce noise profile update rate
 
     private initFields(){
         this.ringBufferOfSamples = new RingBuffer<number>(2048, 0);
@@ -147,7 +147,7 @@ export class SignatureGenerator{
         this.magnitudeBuffer = new Float64Array(OUTPUT_SIZE);
         this.excerptBuffer = new Float64Array(2048);
         
-        // ノイズフィルタリング用バッファの初期化
+        // Initialize noise filtering buffers
         this.noiseProfile = new Float64Array(OUTPUT_SIZE);
         this.smoothedMagnitudes = new Float64Array(OUTPUT_SIZE);
         
@@ -216,7 +216,7 @@ export class SignatureGenerator{
             this.magnitudeBuffer[i] = magnitude < MIN_MAGNITUDE ? MIN_MAGNITUDE : magnitude;
         }
 
-        // ノイズフィルタリングとスペクトラルサブトラクションを適用（オプション）
+        // Apply noise filtering and spectral subtraction (optional)
         let finalMagnitudes: Float64Array;
         if (ENABLE_ADVANCED_FILTERING) {
             this.updateNoiseProfile(this.magnitudeBuffer);
@@ -300,7 +300,7 @@ export class SignatureGenerator{
             }
 
             if(currentMagnitude > maxNeighborInOtherAdjacentFFTs){
-                // ピーク信頼度の計算（オプション）
+                // Peak confidence calculation (optional)
                 let shouldContinue = true;
                 
                 if (ENABLE_PEAK_CONFIDENCE) {
@@ -310,12 +310,12 @@ export class SignatureGenerator{
                         maxNeighborInOtherAdjacentFFTs
                     );
                     
-                    // デバッグ用：信頼度の値をログ出力（開発時のみ）
+                    // Debug: Log confidence values (development only)
                     // console.log(`Peak confidence: ${peakConfidence.toFixed(3)}, threshold: ${PEAK_CONFIDENCE_THRESHOLD}`);
                     
-                    // 信頼度が閾値を下回る場合はスキップ
+                    // Skip if confidence is below threshold
                     if (peakConfidence < PEAK_CONFIDENCE_THRESHOLD) {
-                        // フォールバック：マグニチュードが十分に大きい場合は強制的に通過
+                        // Fallback: Force pass if magnitude is sufficiently large
                         if (currentMagnitude > MAGNITUDE_THRESHOLD * 4) {
                             // console.log(`Fallback: Strong magnitude peak allowed (${currentMagnitude.toFixed(6)})`);
                         } else {
@@ -324,15 +324,15 @@ export class SignatureGenerator{
                     }
                 }
                 
-                // 時間的一貫性チェック（オプション）
+                // Temporal consistency check (optional)
                 if (shouldContinue && ENABLE_TEMPORAL_CONSISTENCY) {
                     const temporalConsistency = this.checkTemporalConsistency(binPosition, fftMinus46);
                     
-                    // デバッグ用：一貫性の値をログ出力（開発時のみ）
+                    // Debug: Log consistency values (development only)
                     // console.log(`Temporal consistency: ${temporalConsistency.toFixed(3)}, threshold: ${TEMPORAL_CONSISTENCY_THRESHOLD}`);
                     
                     if (temporalConsistency < TEMPORAL_CONSISTENCY_THRESHOLD) {
-                        // フォールバック：マグニチュードが十分に大きい場合は強制的に通過
+                        // Fallback: Force pass if magnitude is sufficiently large
                         if (currentMagnitude > MAGNITUDE_THRESHOLD * 3) {
                             // console.log(`Fallback: Strong magnitude peak allowed for temporal consistency (${currentMagnitude.toFixed(6)})`);
                         } else {
@@ -341,16 +341,16 @@ export class SignatureGenerator{
                     }
                 }
                 
-                // 追加の誤検出削減チェック
+                // Additional false positive reduction checks
                 if (shouldContinue && ENABLE_FREQUENCY_CONTINUITY) {
-                    // 周波数方向の連続性チェック
+                    // Frequency direction continuity check
                     const frequencyContinuity = this.checkFrequencyContinuity(binPosition, fftMinus46);
                     
-                    // デバッグ用：連続性の値をログ出力（開発時のみ）
+                    // Debug: Log continuity values (development only)
                     // console.log(`Frequency continuity: ${frequencyContinuity.toFixed(3)}, threshold: ${FREQUENCY_CONTINUITY_THRESHOLD}`);
                     
                     if (frequencyContinuity < FREQUENCY_CONTINUITY_THRESHOLD) {
-                        // フォールバック：マグニチュードが十分に大きい場合は強制的に通過
+                        // Fallback: Force pass if magnitude is sufficiently large
                         if (currentMagnitude > MAGNITUDE_THRESHOLD * 5) {
                             // console.log(`Fallback: Strong magnitude peak allowed for frequency continuity (${currentMagnitude.toFixed(6)})`);
                         } else {
@@ -360,14 +360,14 @@ export class SignatureGenerator{
                 }
 
                 if (shouldContinue && ENABLE_MAGNITUDE_STABILITY) {
-                    // マグニチュード変動の安定性チェック
+                    // Magnitude variation stability check
                     const magnitudeStability = this.checkMagnitudeStability(binPosition, fftMinus46);
                     
-                    // デバッグ用：安定性の値をログ出力（開発時のみ）
+                    // Debug: Log stability values (development only)
                     // console.log(`Magnitude stability: ${magnitudeStability.toFixed(3)}, threshold: 0.3`);
                     
-                    if (magnitudeStability < 0.3) { // 安定性の閾値
-                        // フォールバック：マグニチュードが十分に大きい場合は強制的に通過
+                    if (magnitudeStability < 0.3) { // Stability threshold
+                        // Fallback: Force pass if magnitude is sufficiently large
                         if (currentMagnitude > MAGNITUDE_THRESHOLD * 4) {
                             // console.log(`Fallback: Strong magnitude peak allowed for magnitude stability (${currentMagnitude.toFixed(6)})`);
                         } else {
@@ -417,24 +417,24 @@ export class SignatureGenerator{
 
                 const bandKey = FrequencyBand[band];
                 
-                // ピーク密度制限と時間的間隔制限をチェック
+                // Check peak density limit and temporal interval limit
                 if (ENABLE_PEAK_DENSITY_LIMIT && !this.checkPeakDensityLimit(bandKey, fftNumber)) {
-                    continue; // 密度制限を超えている
+                    continue; // Exceeds density limit
                 }
                 
                 if (ENABLE_PEAK_INTERVAL_LIMIT && !this.checkPeakIntervalLimit(bandKey, fftNumber)) {
-                    continue; // 時間的間隔制限を超えている
+                    continue; // Exceeds temporal interval limit
                 }
                 
-                // 周波数帯域ごとの動的閾値を適用
+                // Apply dynamic thresholds for each frequency band
                 if (ENABLE_DYNAMIC_THRESHOLDS) {
                     const dynamicThreshold = FREQUENCY_BAND_THRESHOLDS[band];
                     if (currentMagnitude < dynamicThreshold) {
-                        continue; // 動的閾値を下回っている
+                        continue; // Below dynamic threshold
                     }
                 }
                 
-                // 周波数帯域の重み付けを適用（オプション）
+                // Apply frequency band weighting (optional)
                 let finalPeakMagnitude = Math.round(peakMagnitude);
                 if (ENABLE_ADVANCED_FILTERING) {
                     finalPeakMagnitude = Math.round(peakMagnitude * FREQUENCY_BAND_WEIGHTS[band]);
@@ -451,37 +451,37 @@ export class SignatureGenerator{
         }
     }
 
-    // ピーク信頼度を計算するメソッド
+    // Method to calculate peak confidence
     private calculatePeakConfidence(
         currentMagnitude: number, 
         maxNeighborInFftMinus49: number, 
         maxNeighborInOtherAdjacentFFTs: number
     ): number {
-        // 現在のピークと隣接ピークの差が大きいほど信頼度が高い
+        // Higher confidence when difference between current peak and adjacent peaks is larger
         const magnitudeDifference = currentMagnitude - maxNeighborInOtherAdjacentFFTs;
         
-        // ゼロ除算を防ぐ
+        // Prevent division by zero
         if (currentMagnitude === 0) return 0;
         
         const normalizedDifference = Math.min(magnitudeDifference / currentMagnitude, 1.0);
         
-        // 隣接FFTとの一貫性も考慮（ゼロ除算を防ぐ）
+        // Also consider consistency with adjacent FFTs (prevent division by zero)
         let temporalConsistency = 0;
         if (currentMagnitude > 0) {
             temporalConsistency = Math.max(0, 1 - (maxNeighborInFftMinus49 / currentMagnitude));
         }
         
-        // 総合的な信頼度を計算（より緩い計算に調整）
+        // Calculate overall confidence (adjusted to be more lenient)
         const confidence = (normalizedDifference * 0.6 + temporalConsistency * 0.4);
         
-        // デバッグ用：信頼度が低すぎる場合は調整
-        return Math.max(confidence, 0.1); // 最小値0.1を保証
+        // Debug: Adjust if confidence is too low
+        return Math.max(confidence, 0.1); // Guarantee minimum value of 0.1
     }
 
-    // 時間的一貫性をチェックするメソッド
+    // Method to check temporal consistency
     private checkTemporalConsistency(binPosition: number, currentFFT: Float64Array): number {
-        // 周辺の周波数ビンでの一貫性をチェック
-        const checkRange = 2; // 範囲を狭める
+        // Check consistency in surrounding frequency bins
+        const checkRange = 2; // Narrow the range
         let consistentCount = 0;
         let totalCount = 0;
         
@@ -491,9 +491,9 @@ export class SignatureGenerator{
                 const currentValue = currentFFT[checkBin];
                 const centerValue = currentFFT[binPosition];
                 
-                // ゼロ除算を防ぐ
+                // Prevent division by zero
                 if (centerValue > 0) {
-                    // 中心値との相対的な差が小さいほど一貫性が高い（より緩い閾値）
+                    // Higher consistency when relative difference from center value is smaller (more lenient threshold)
                     if (Math.abs(currentValue - centerValue) / centerValue < 0.5) {
                         consistentCount++;
                     }
@@ -504,18 +504,18 @@ export class SignatureGenerator{
         
         const consistency = totalCount > 0 ? consistentCount / totalCount : 0;
         
-        // デバッグ用：一貫性が低すぎる場合は調整
-        return Math.max(consistency, 0.2); // 最小値0.2を保証
+        // Debug: Adjust if consistency is too low
+        return Math.max(consistency, 0.2); // Guarantee minimum value of 0.2
     }
 
-    // ピーク密度制限をチェックするメソッド
+    // Method to check peak density limit
     private checkPeakDensityLimit(bandKey: string, fftNumber: number): boolean {
         const peaks = this.nextSignature.frequencyBandToSoundPeaks[bandKey];
         if (!peaks || peaks.length < MAX_PEAKS_PER_BAND) {
-            return true; // 制限内
+            return true; // Within limit
         }
 
-        // 最近のFFTフレームでのピーク数をチェック
+        // Check number of peaks in recent FFT frames
         const recentPeaks = peaks.filter(peak => 
             Math.abs(peak.fftPassNumber - fftNumber) <= 10
         );
@@ -523,26 +523,26 @@ export class SignatureGenerator{
         return recentPeaks.length < MAX_PEAKS_PER_BAND / 2;
     }
 
-    // 時間的間隔制限をチェックするメソッド
+    // Method to check temporal interval limit
     private checkPeakIntervalLimit(bandKey: string, fftNumber: number): boolean {
         const peaks = this.nextSignature.frequencyBandToSoundPeaks[bandKey];
         if (!peaks || peaks.length === 0) {
-            return true; // 最初のピーク
+            return true; // First peak
         }
 
-        // 同じ帯域内で最近のピークとの間隔をチェック
+        // Check interval with recent peak in same band
         const lastPeak = peaks[peaks.length - 1];
         return Math.abs(fftNumber - lastPeak.fftPassNumber) >= MIN_PEAK_INTERVAL_FFT;
     }
 
-    // 周波数方向の連続性をチェックするメソッド
+    // Method to check frequency direction continuity
     private checkFrequencyContinuity(binPosition: number, currentFFT: Float64Array): number {
-        const checkRange = 1; // 範囲を狭める
+        const checkRange = 1; // Narrow the range
         let continuityScore = 0;
         let totalChecks = 0;
 
         for (let offset = -checkRange; offset <= checkRange; offset++) {
-            if (offset === 0) continue; // 中心は除外
+            if (offset === 0) continue; // Exclude center
 
             const checkBin = binPosition + offset;
             if (checkBin >= 0 && checkBin < OUTPUT_SIZE) {
@@ -550,9 +550,9 @@ export class SignatureGenerator{
                 const centerValue = currentFFT[binPosition];
 
                 if (centerValue > 0) {
-                    // 周辺の値が中心値と比例関係にあるかをチェック（より緩い条件）
+                    // Check if surrounding values have proportional relationship with center value (more lenient condition)
                     const ratio = currentValue / centerValue;
-                    if (ratio > 0.1 && ratio < 10.0) { // 0.3-3.0から0.1-10.0に緩和
+                    if (ratio > 0.1 && ratio < 10.0) { // Relaxed from 0.3-3.0 to 0.1-10.0
                         continuityScore++;
                     }
                 }
@@ -562,11 +562,11 @@ export class SignatureGenerator{
 
         const continuity = totalChecks > 0 ? continuityScore / totalChecks : 0;
         
-        // デバッグ用：連続性が低すぎる場合は調整
-        return Math.max(continuity, 0.1); // 最小値0.1を保証
+        // Debug: Adjust if continuity is too low
+        return Math.max(continuity, 0.1); // Guarantee minimum value of 0.1
     }
 
-    // マグニチュード変動の安定性をチェックするメソッド
+    // Method to check magnitude variation stability
     private checkMagnitudeStability(binPosition: number, currentFFT: Float64Array): number {
         const checkRange = 1;
         let varianceSum = 0;
@@ -591,48 +591,48 @@ export class SignatureGenerator{
         if (totalChecks === 0) return 1.0;
         
         const averageVariance = varianceSum / totalChecks;
-        // 変動が小さいほど高いスコア（より緩い計算）
-        const stability = Math.max(0, 1 - averageVariance / (MAGNITUDE_VARIANCE_THRESHOLD * 2)); // 閾値を2倍に緩和
+        // Higher score when variation is smaller (more lenient calculation)
+        const stability = Math.max(0, 1 - averageVariance / (MAGNITUDE_VARIANCE_THRESHOLD * 2)); // Relax threshold by 2x
         
-        // デバッグ用：安定性が低すぎる場合は調整
-        return Math.max(stability, 0.1); // 最小値0.1を保証
+        // Debug: Adjust if stability is too low
+        return Math.max(stability, 0.1); // Guarantee minimum value of 0.1
     }
 
-    // ノイズプロファイルを更新するメソッド
+    // Method to update noise profile
     private updateNoiseProfile(magnitudes: Float64Array) {
         for (let i = 0; i < OUTPUT_SIZE; i++) {
-            // 指数移動平均でノイズプロファイルを更新
+            // Update noise profile using exponential moving average
             this.noiseProfile[i] = this.noiseProfile[i] * (1 - this.noiseUpdateRate) + 
                                    magnitudes[i] * this.noiseUpdateRate;
         }
     }
 
-    // スペクトラルサブトラクションによるノイズ除去
+    // Noise removal using spectral subtraction
     private applySpectralSubtraction(magnitudes: Float64Array): Float64Array {
         const filtered = new Float64Array(OUTPUT_SIZE);
         const alpha = 1.2;
         
         for (let i = 0; i < OUTPUT_SIZE; i++) {
-            // ノイズレベルを考慮したフィルタリング
+            // Filtering considering noise level
             const noiseLevel = this.noiseProfile[i];
             const signalLevel = magnitudes[i];
             
             if (signalLevel > noiseLevel * alpha) {
-                // 信号がノイズより十分に大きい場合
+                // When signal is sufficiently larger than noise
                 filtered[i] = signalLevel - noiseLevel * (alpha - 1);
             } else {
-                // 信号がノイズレベルに近い場合は大幅に減衰
-                filtered[i] = signalLevel * 0.5; // 0.1から0.5に変更（より控えめに）
+                // When signal is close to noise level, attenuate significantly
+                filtered[i] = signalLevel * 0.5; // Changed from 0.1 to 0.5 (more moderate)
             }
             
-            // 最小値以下にならないように制限
+            // Ensure it doesn't go below minimum value
             filtered[i] = Math.max(filtered[i], MIN_MAGNITUDE);
         }
         
         return filtered;
     }
 
-    // マグニチュードの平滑化
+    // Magnitude smoothing
     private smoothMagnitudes(magnitudes: Float64Array): Float64Array {
         const smoothed = new Float64Array(OUTPUT_SIZE);
         const smoothingFactor = 0.1;
