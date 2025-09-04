@@ -1,7 +1,7 @@
 import { SignatureGenerator } from "./algorithm";
 import { DecodedMessage } from "./signature-format";
 import nFetch from 'node-fetch';
-import { ShazamRoot } from "./types";
+import { ShazamRoot, ShazamOptions } from "./types";
 
 const TIME_ZONE = "Europe/Paris";
 
@@ -17,9 +17,9 @@ export class Endpoint{
     static SCHEME = "https";
     static HOSTNAME = "amp.shazam.com";
 
-    constructor(public timezone: string){};
+    constructor(public timezone: string, public language: string = "en", public country: string = "US"){};
     url(){
-        return `${Endpoint.SCHEME}://${Endpoint.HOSTNAME}/discovery/v5/en/US/iphone/-/tag/${uuidv4()}/${uuidv4()}`;
+        return `${Endpoint.SCHEME}://${Endpoint.HOSTNAME}/discovery/v5/${this.language}/${this.country}/iphone/-/tag/${uuidv4()}/${uuidv4()}`;
     }
     params(){
         return {
@@ -76,8 +76,17 @@ export class Shazam{
     static MAX_TIME_SCEONDS = 8;
 
     public endpoint: Endpoint;
-    constructor(timeZone?: string){
-        this.endpoint = new Endpoint(timeZone ?? TIME_ZONE);
+    constructor(options?: ShazamOptions | string){
+        // Backward compatibility: if string is passed, treat it as timeZone
+        if (typeof options === 'string') {
+            this.endpoint = new Endpoint(options, "en", "US");
+        } else {
+            this.endpoint = new Endpoint(
+                options?.timeZone ?? TIME_ZONE, 
+                options?.language ?? "en", 
+                options?.country ?? "US"
+            );
+        }
     }
 
     async recognizeSong(samples: number[], callback?: ((state: "generating" | "transmitting") => void)){

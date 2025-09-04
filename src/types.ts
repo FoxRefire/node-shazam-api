@@ -160,3 +160,9 @@ export interface ShazamHighlightsurls {
     artisthighlightsurl: string
     trackhighlighturl: string
 }
+
+export interface ShazamOptions {
+    timeZone?: string
+    language?: string
+    country?: string
+}
