@@ -187,8 +187,15 @@ export class SignatureGenerator{
     // ========================================================================
     // PUBLIC INTERFACE
     // ========================================================================
+    // Push in chunks to avoid "Maximum call stack size exceeded" when
+    // spreading very large sample arrays (e.g. long audio) into push().
     feedInput(s16leMonoSamples: number[]){
-        this.inputPendingProcessing.push(...s16leMonoSamples);
+        const CHUNK = 32768;
+        for (let i = 0; i < s16leMonoSamples.length; i += CHUNK) {
+            this.inputPendingProcessing.push(
+                ...s16leMonoSamples.slice(i, i + CHUNK)
+            );
+        }
     }
 
     getNextSignature(): DecodedMessage | null {
